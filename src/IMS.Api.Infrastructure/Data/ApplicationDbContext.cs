@@ -10,14 +10,14 @@ using IMS.Api.Domain.ValueObjects;
 namespace IMS.Api.Infrastructure.Data;
 
 public class ApplicationDbContext : IdentityDbContext<
-    ApplicationUser, 
-    ApplicationRole, 
+    ApplicationUser,
+    ApplicationRole,
     Guid,
     ApplicationUserClaim,
     ApplicationUserRole,
-    IdentityUserLogin<Guid>,
+    ApplicationUserLogin,
     ApplicationRoleClaim,
-    IdentityUserToken<Guid>>, IUnitOfWork
+    ApplicationUserToken>, IUnitOfWork
 {
     private readonly ITenantContext _tenantContext;
 

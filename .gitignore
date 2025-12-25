@@ -63,3 +63,5 @@ nunit-*.xml
 /.vs/IMS.Api/v18/.suo
 /.vs/IMS.Api/v18/DocumentLayout.backup.json
 /.vs/IMS.Api/v18/DocumentLayout.json
+/.vscode/launch.json
+/.vscode/tasks.json

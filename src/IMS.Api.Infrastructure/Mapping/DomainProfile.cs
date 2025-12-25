@@ -33,25 +33,25 @@ public class DomainProfile : Profile
     private void ConfigureProductMappings()
     {
         // Product mappings with soft delete support
-        CreateMap<ProductDto, Product>()
+        CreateMap<Data.DTOs.ProductDto, Product>()
             .ConstructUsing(dto => Product.Create(dto.Name, dto.Description, TenantId.Create(dto.TenantId), 
                 dto.CategoryId.HasValue ? CategoryId.Create(dto.CategoryId.Value) : null))
             .ForMember(dest => dest.Id, opt => opt.MapFrom(src => ProductId.Create(src.Id)))
             .ForMember(dest => dest.CreatedAtUtc, opt => opt.MapFrom(src => src.CreatedAtUtc))
             .ForMember(dest => dest.UpdatedAtUtc, opt => opt.MapFrom(src => src.UpdatedAtUtc));
 
-        CreateMap<Product, ProductDto>()
+        CreateMap<Product, Data.DTOs.ProductDto>()
             .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.Id.Value))
             .ForMember(dest => dest.CategoryId, opt => opt.MapFrom(src => src.CategoryId != null ? src.CategoryId.Value : (Guid?)null))
             .ForMember(dest => dest.TenantId, opt => opt.MapFrom(src => src.TenantId.Value))
             .ForMember(dest => dest.DeletedBy, opt => opt.MapFrom(src => src.DeletedBy != null ? src.DeletedBy.Value : (Guid?)null));
 
         // ProductAttribute mappings with soft delete support
-        CreateMap<ProductAttributeDto, ProductAttribute>()
+        CreateMap<Data.DTOs.ProductAttributeDto, ProductAttribute>()
             .ConstructUsing(dto => ProductAttribute.Create(dto.Name, dto.Value, Enum.Parse<AttributeDataType>(dto.DataType)))
             .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.Id));
 
-        CreateMap<ProductAttribute, ProductAttributeDto>()
+        CreateMap<ProductAttribute, Data.DTOs.ProductAttributeDto>()
             .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.Id))
             .ForMember(dest => dest.DataType, opt => opt.MapFrom(src => src.DataType.ToString()))
             .ForMember(dest => dest.DeletedBy, opt => opt.MapFrom(src => src.DeletedBy != null ? src.DeletedBy.Value : (Guid?)null));
@@ -60,7 +60,7 @@ public class DomainProfile : Profile
     private void ConfigureVariantMappings()
     {
         // Variant mappings with soft delete support
-        CreateMap<VariantDto, Variant>()
+        CreateMap<Data.DTOs.VariantDto, Variant>()
             .ConstructUsing(dto => Variant.Create(
                 SKU.Create(dto.Sku), 
                 dto.Name, 
@@ -70,7 +70,7 @@ public class DomainProfile : Profile
             .ForMember(dest => dest.CreatedAtUtc, opt => opt.MapFrom(src => src.CreatedAtUtc))
             .ForMember(dest => dest.UpdatedAtUtc, opt => opt.MapFrom(src => src.UpdatedAtUtc));
 
-        CreateMap<Variant, VariantDto>()
+        CreateMap<Variant, Data.DTOs.VariantDto>()
             .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.Id.Value))
             .ForMember(dest => dest.Sku, opt => opt.MapFrom(src => src.Sku.Value))
             .ForMember(dest => dest.BaseUnitSymbol, opt => opt.MapFrom(src => src.BaseUnit.Symbol))
@@ -80,11 +80,11 @@ public class DomainProfile : Profile
             .ForMember(dest => dest.DeletedBy, opt => opt.MapFrom(src => src.DeletedBy != null ? src.DeletedBy.Value : (Guid?)null));
 
         // VariantAttribute mappings with soft delete support
-        CreateMap<VariantAttributeDto, VariantAttribute>()
+        CreateMap<Data.DTOs.VariantAttributeDto, VariantAttribute>()
             .ConstructUsing(dto => VariantAttribute.Create(dto.Name, dto.Value, Enum.Parse<AttributeDataType>(dto.DataType)))
             .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.Id));
 
-        CreateMap<VariantAttribute, VariantAttributeDto>()
+        CreateMap<VariantAttribute, Data.DTOs.VariantAttributeDto>()
             .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.Id))
             .ForMember(dest => dest.DataType, opt => opt.MapFrom(src => src.DataType.ToString()))
             .ForMember(dest => dest.DeletedBy, opt => opt.MapFrom(src => src.DeletedBy != null ? src.DeletedBy.Value : (Guid?)null));
@@ -93,7 +93,7 @@ public class DomainProfile : Profile
     private void ConfigureInventoryMappings()
     {
         // InventoryItem mappings with soft delete and expiry support
-        CreateMap<InventoryItemDto, InventoryItem>()
+        CreateMap<Data.DTOs.InventoryItemDto, InventoryItem>()
             .ConstructUsing(dto => InventoryItem.Create(
                 VariantId.Create(dto.VariantId), 
                 WarehouseId.Create(dto.WarehouseId), 
@@ -102,7 +102,7 @@ public class DomainProfile : Profile
             .ForMember(dest => dest.Id, opt => opt.MapFrom(src => InventoryItemId.Create(src.Id)))
             .ForMember(dest => dest.UpdatedAtUtc, opt => opt.MapFrom(src => src.UpdatedAtUtc));
 
-        CreateMap<InventoryItem, InventoryItemDto>()
+        CreateMap<InventoryItem, Data.DTOs.InventoryItemDto>()
             .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.Id.Value))
             .ForMember(dest => dest.VariantId, opt => opt.MapFrom(src => src.VariantId.Value))
             .ForMember(dest => dest.WarehouseId, opt => opt.MapFrom(src => src.WarehouseId.Value))
@@ -112,7 +112,7 @@ public class DomainProfile : Profile
     private void ConfigureStockMovementMappings()
     {
         // StockMovement mappings with double-entry support
-        CreateMap<StockMovementDto, StockMovement>()
+        CreateMap<Data.DTOs.StockMovementDto, StockMovement>()
             .ConstructUsing(dto => StockMovement.Create(
                 Enum.Parse<MovementType>(dto.Type),
                 dto.Quantity,
@@ -128,7 +128,7 @@ public class DomainProfile : Profile
             .ForMember(dest => dest.PairedMovementId, opt => opt.MapFrom(src => 
                 src.PairedMovementId.HasValue ? StockMovementId.Create(src.PairedMovementId.Value) : null));
 
-        CreateMap<StockMovement, StockMovementDto>()
+        CreateMap<StockMovement, Data.DTOs.StockMovementDto>()
             .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.Id.Value))
             .ForMember(dest => dest.Type, opt => opt.MapFrom(src => src.Type.ToString()))
             .ForMember(dest => dest.ActorId, opt => opt.MapFrom(src => src.ActorId.Value))

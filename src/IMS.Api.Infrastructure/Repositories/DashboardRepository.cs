@@ -388,14 +388,13 @@ public class DashboardRepository : IDashboardRepository
         var totalCount = await multi.ReadSingleAsync<int>();
         var alerts = await multi.ReadAsync<AlertDto>();
 
-        return new PagedResult<AlertDto>
-        {
-            Items = alerts.ToList(),
-            TotalCount = totalCount,
-            Page = page,
-            PageSize = pageSize,
-            TotalPages = (int)Math.Ceiling((double)totalCount / pageSize)
-        };
+        return new PagedResult<AlertDto>(
+            alerts.ToList(),
+            totalCount,
+            page,
+            pageSize,
+            (int)Math.Ceiling((double)totalCount / pageSize)
+        );
     }
 
     public async Task<AlertDto> CreateOrUpdateAlertAsync(

@@ -100,14 +100,12 @@ public class AuditRepository : IAuditRepository
 
         var mappedAuditLogs = auditLogs.Select(MapToAuditLog).ToList();
 
-        return new PagedResult<AuditLog>
-        {
-            Items = mappedAuditLogs,
-            TotalCount = totalCount,
-            PageNumber = filter.PageNumber,
-            PageSize = filter.PageSize,
-            TotalPages = (int)Math.Ceiling((double)totalCount / filter.PageSize)
-        };
+        return new PagedResult<AuditLog>(
+            mappedAuditLogs,
+            totalCount,
+            filter.PageNumber,
+            filter.PageSize
+        );
     }
 
     public async Task<PagedResult<AuditLog>> GetEntityAuditHistoryAsync(
@@ -198,10 +196,10 @@ public class AuditRepository : IAuditRepository
         if (filter.ActorId != null)
             conditions.Add("al.ActorId = @ActorId");
 
-        if (filter.WarehouseId.HasValue)
+        if (filter.WarehouseId != null)
             conditions.Add("al.WarehouseId = @WarehouseId");
 
-        if (filter.VariantId.HasValue)
+        if (filter.VariantId != null)
             conditions.Add("al.VariantId = @VariantId");
 
         if (filter.StartDate.HasValue)
@@ -244,11 +242,11 @@ public class AuditRepository : IAuditRepository
         if (filter.ActorId != null)
             parameters.Add("ActorId", filter.ActorId.Value);
 
-        if (filter.WarehouseId.HasValue)
-            parameters.Add("WarehouseId", filter.WarehouseId.Value.Value);
+        if (filter.WarehouseId != null)
+            parameters.Add("WarehouseId", filter.WarehouseId.Value);
 
-        if (filter.VariantId.HasValue)
-            parameters.Add("VariantId", filter.VariantId.Value.Value);
+        if (filter.VariantId != null)
+            parameters.Add("VariantId", filter.VariantId.Value);
 
         if (filter.StartDate.HasValue)
             parameters.Add("StartDate", filter.StartDate.Value);

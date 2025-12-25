@@ -1,4 +1,5 @@
 using IMS.Api.Application.Common.Interfaces;
+using IMS.Api.Application.Queries.Inventory;
 using IMS.Api.Domain.Aggregates;
 using IMS.Api.Domain.ValueObjects;
 

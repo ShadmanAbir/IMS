@@ -17,6 +17,8 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\IMS.Api.Application\IMS.Api.Application.csproj" />
+    <ProjectReference Include="..\IMS.Api.Infrastructure\IMS.Api.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

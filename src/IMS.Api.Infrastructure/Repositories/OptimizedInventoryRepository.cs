@@ -252,13 +252,13 @@ public class OptimizedInventoryRepository : IOptimizedInventoryRepository
           stopwatch.ElapsedMilliseconds, variantId);
 
         return new PagedResult<StockMovementDto>
-        {
-            Items = movements.ToList(),
-            TotalCount = totalCount,
-            Page = page,
-            PageSize = pageSize,
-            TotalPages = (int)Math.Ceiling((double)totalCount / pageSize)
-        };
+        (
+            movements.ToList(),
+            totalCount,
+            page,
+            pageSize,
+            (int)Math.Ceiling((double)totalCount / pageSize)
+        );
     }
 
     public async Task<Dictionary<Guid, decimal>> GetAvailableStockBatchAsync(

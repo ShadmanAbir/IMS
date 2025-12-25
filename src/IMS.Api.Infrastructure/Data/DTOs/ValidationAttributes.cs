@@ -53,10 +53,10 @@ public class FutureDateAttribute : ValidationAttribute
         {
             return dateValue > DateTime.UtcNow;
         }
-        if (value is DateTime? nullableDateValue)
-        {
-            return !nullableDateValue.HasValue || nullableDateValue.Value > DateTime.UtcNow;
-        }
+        //if (value is DateTime nullableDateValue)
+        //{
+        //    return !nullableDateValue.HasValue || nullableDateValue.Value > DateTime.UtcNow;
+        //}
         return true; // Allow null values
     }
 

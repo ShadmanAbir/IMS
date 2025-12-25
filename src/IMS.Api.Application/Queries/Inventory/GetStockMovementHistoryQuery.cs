@@ -128,4 +128,5 @@ public class StockMovementQuery
     public string? ReferenceNumber { get; set; }
     public int PageNumber { get; set; } = 1;
     public int PageSize { get; set; } = 20;
+    public int ActorId { get; set; }
 }

@@ -78,7 +78,7 @@ public class StockMovementRepository : IStockMovementRepository
         var sql = AddTenantFilter("SELECT * FROM StockMovements WHERE Id = @Id", "sm.TenantId");
         var parameters = GetTenantParameters(new { Id = id.Value });
         
-        var dto = await connection.QuerySingleOrDefaultAsync<StockMovementDto>(sql, parameters);
+        var dto = await connection.QuerySingleOrDefaultAsync<Data.DTOs.StockMovementDto>(sql, parameters);
         
         return dto != null ? _mapper.Map<StockMovement>(dto) : null;
     }
@@ -90,7 +90,7 @@ public class StockMovementRepository : IStockMovementRepository
         var sql = AddTenantFilter("SELECT * FROM StockMovements ORDER BY TimestampUtc DESC");
         var parameters = GetTenantParameters();
         
-        var dtos = await connection.QueryAsync<StockMovementDto>(sql, parameters);
+        var dtos = await connection.QueryAsync<Data.DTOs.StockMovementDto>(sql, parameters);
         
         return _mapper.Map<IEnumerable<StockMovement>>(dtos);
     }
@@ -123,7 +123,7 @@ public class StockMovementRepository : IStockMovementRepository
         if (query.ActorId != null)
         {
             whereConditions.Add("sm.ActorId = @ActorId");
-            parameters.Add("ActorId", query.ActorId.Value);
+            parameters.Add("ActorId", query.ActorId);
         }
 
         if (!string.IsNullOrWhiteSpace(query.ReferenceNumber))
@@ -173,16 +173,15 @@ public class StockMovementRepository : IStockMovementRepository
             ORDER BY sm.TimestampUtc DESC
             LIMIT @PageSize OFFSET @Offset";
 
-        var dtos = await connection.QueryAsync<StockMovementDto>(dataSql, parameters);
+        var dtos = await connection.QueryAsync<Data.DTOs.StockMovementDto>(dataSql, parameters);
         var movements = _mapper.Map<List<StockMovement>>(dtos);
 
         return new PagedResult<StockMovement>
-        {
-            Items = movements,
-            TotalCount = totalCount,
-            PageNumber = query.PageNumber,
-            PageSize = query.PageSize
-        };
+        (movements,
+         totalCount,
+         query.PageNumber,
+         query.PageSize
+        );
     }
 
     public async Task<List<StockMovement>> GetMovementsByReferenceAsync(string referenceNumber, CancellationToken cancellationToken = default)
@@ -196,7 +195,7 @@ public class StockMovementRepository : IStockMovementRepository
             ORDER BY sm.TimestampUtc DESC", "ii.TenantId");
 
         var parameters = GetTenantParameters(new { ReferenceNumber = referenceNumber });
-        var dtos = await connection.QueryAsync<StockMovementDto>(sql, parameters);
+        var dtos = await connection.QueryAsync<Data.DTOs.StockMovementDto>(sql, parameters);
         return _mapper.Map<List<StockMovement>>(dtos);
     }
 
@@ -211,7 +210,7 @@ public class StockMovementRepository : IStockMovementRepository
             ORDER BY sm.TimestampUtc DESC", "ii.TenantId");
 
         var parameters = GetTenantParameters(new { InventoryItemId = inventoryItemId.Value });
-        var dtos = await connection.QueryAsync<StockMovementDto>(sql, parameters);
+        var dtos = await connection.QueryAsync<Data.DTOs.StockMovementDto>(sql, parameters);
         return _mapper.Map<List<StockMovement>>(dtos);
     }
 
@@ -226,7 +225,7 @@ public class StockMovementRepository : IStockMovementRepository
             ORDER BY sm.TimestampUtc DESC", "ii.TenantId");
 
         var parameters = GetTenantParameters(new { VariantId = variantId.Value });
-        var dtos = await connection.QueryAsync<StockMovementDto>(sql, parameters);
+        var dtos = await connection.QueryAsync<Data.DTOs.StockMovementDto>(sql, parameters);
         return _mapper.Map<List<StockMovement>>(dtos);
     }
 
@@ -255,7 +254,7 @@ public class StockMovementRepository : IStockMovementRepository
 
         sql += " ORDER BY sm.TimestampUtc DESC";
 
-        var dtos = await connection.QueryAsync<StockMovementDto>(sql, parameters);
+        var dtos = await connection.QueryAsync<Data.DTOs.StockMovementDto>(sql, parameters);
         return _mapper.Map<List<StockMovement>>(dtos);
     }
 
@@ -270,7 +269,7 @@ public class StockMovementRepository : IStockMovementRepository
             LIMIT @Count", "ii.TenantId");
 
         var parameters = GetTenantParameters(new { Count = count });
-        var dtos = await connection.QueryAsync<StockMovementDto>(sql, parameters);
+        var dtos = await connection.QueryAsync<Data.DTOs.StockMovementDto>(sql, parameters);
         return _mapper.Map<List<StockMovement>>(dtos);
     }
 

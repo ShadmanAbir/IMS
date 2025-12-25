@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using IMS.Api.Domain.Entities;
 using IMS.Api.Domain.Enums;
 using IMS.Api.Domain.ValueObjects;
+using IMS.Api.Domain.Aggregates;
 
 namespace IMS.Api.Infrastructure.Data.Configurations;
 

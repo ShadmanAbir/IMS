@@ -69,10 +69,11 @@ public class DashboardMetricsBackgroundService : BackgroundService
         {
             // Get real-time metrics
             var metricsQuery = new GetRealTimeMetricsQuery();
-            var metrics = await mediator.Send(metricsQuery, cancellationToken);
+            var metricsResult = await mediator.Send(metricsQuery, cancellationToken);
 
-            if (metrics != null)
+            if (metricsResult != null && metricsResult.IsSuccess && metricsResult.Value != null)
             {
+                var metrics = metricsResult.Value;
                 // Broadcast updated metrics to all dashboard subscribers
                 await notificationService.NotifyDashboardMetricsUpdateAsync(metrics);
 

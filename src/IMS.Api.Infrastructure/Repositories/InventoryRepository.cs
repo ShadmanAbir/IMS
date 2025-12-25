@@ -46,8 +46,8 @@ public class InventoryRepository : IInventoryRepository
     /// <exception cref="ArgumentNullException">Thrown when entity is null</exception>
     public async Task AddAsync(InventoryItem entity, CancellationToken cancellationToken = default)
     {
-        if (entity == null) throw new ArgumentNullException(nameof(entity));
-        
+        ArgumentNullException.ThrowIfNull(entity);
+
         await _context.InventoryItems.AddAsync(entity, cancellationToken);
     }
 
@@ -59,7 +59,7 @@ public class InventoryRepository : IInventoryRepository
     /// <exception cref="ArgumentNullException">Thrown when entity is null</exception>
     public async Task UpdateAsync(InventoryItem entity, CancellationToken cancellationToken = default)
     {
-        if (entity == null) throw new ArgumentNullException(nameof(entity));
+        ArgumentNullException.ThrowIfNull(entity);
         
         _context.InventoryItems.Update(entity);
         await Task.CompletedTask;
@@ -73,7 +73,7 @@ public class InventoryRepository : IInventoryRepository
     /// <exception cref="ArgumentNullException">Thrown when entity is null</exception>
     public async Task DeleteAsync(InventoryItem entity, CancellationToken cancellationToken = default)
     {
-        if (entity == null) throw new ArgumentNullException(nameof(entity));
+        ArgumentNullException.ThrowIfNull(entity);
         
         _context.InventoryItems.Remove(entity);
         await Task.CompletedTask;
@@ -165,7 +165,7 @@ public class InventoryRepository : IInventoryRepository
         return _mapper.Map<InventoryItem>(inventoryDto);
     }
 
-    public async Task<List<InventoryItem>> GetBulkInventoryAsync(List<VariantId> variantIds, WarehouseId warehouseId, CancellationToken cancellationToken = default)
+    public async Task<List<InventoryItem>> GetBulkInventoryAsync(List<VariantId> variantIds, WarehouseId? warehouseId, CancellationToken cancellationToken = default)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync();
         
@@ -175,7 +175,8 @@ public class InventoryRepository : IInventoryRepository
 
         var parameters = GetTenantParameters(new { 
             VariantIds = variantIds.Select(v => v.Value).ToArray(),
-            WarehouseId = warehouseId.Value 
+            WarehouseId = warehouseId.Value,
+            CancellationToken = cancellationToken
         });
 
         var inventoryDtos = await connection.QueryAsync<InventoryItemDto>(sql, parameters);

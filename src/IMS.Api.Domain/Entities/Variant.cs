@@ -12,6 +12,9 @@ public class Variant : SoftDeletableEntity<VariantId>
     public SKU Sku { get; private set; }
     public string Name { get; private set; }
     public UnitOfMeasure BaseUnit { get; private set; }
+    
+    // Optional TenantId for multi-tenant scenarios (set via factories or DbContext)
+    public TenantId? TenantId { get; private set; }
     public ProductId ProductId { get; private set; }
     public DateTime CreatedAtUtc { get; private set; }
     public DateTime UpdatedAtUtc { get; private set; }

@@ -437,7 +437,7 @@ public class DashboardRealTimeUpdatesTests : IClassFixture<IntegrationTestWebApp
                     WarehouseId = warehouse.Id,
                     Quantity = 150,
                     ExpiresAtUtc = DateTime.UtcNow.AddDays(7),
-                    ReferenceNumber = $"ORDER-{warehouse.Code}-{variant.SKU}",
+                    ReferenceNumber = $"ORDER-{warehouse.Code}-{variant.Sku}",
                     Notes = "Complex scenario reservation"
                 };
 

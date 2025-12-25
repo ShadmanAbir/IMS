@@ -18,7 +18,8 @@ public static class DataSeedingService
     {
         using var scope = serviceProvider.CreateScope();
         var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<ApplicationRole>>();
-        var logger = scope.ServiceProvider.GetRequiredService<ILogger<DataSeedingService>>();
+        var loggerFactory = scope.ServiceProvider.GetRequiredService<ILoggerFactory>();
+        var logger = loggerFactory.CreateLogger("DataSeedingService");
 
         try
         {

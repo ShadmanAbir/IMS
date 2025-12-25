@@ -8,9 +8,9 @@ namespace IMS.Api.Domain.Entities;
 /// </summary>
 public class ApplicationUser : IdentityUser<Guid>
 {
-    public TenantId TenantId { get; private set; }
-    public string FirstName { get; private set; } = string.Empty;
-    public string LastName { get; private set; } = string.Empty;
+    public TenantId TenantId { get; set; }
+    public string FirstName { get; set; } = string.Empty;
+    public string LastName { get; set; } = string.Empty;
     public bool IsActive { get; private set; } = true;
     public DateTime CreatedAtUtc { get; private set; }
     public DateTime? UpdatedAtUtc { get; private set; }
@@ -19,8 +19,8 @@ public class ApplicationUser : IdentityUser<Guid>
     // Navigation properties
     public virtual ICollection<ApplicationUserRole> UserRoles { get; set; } = new List<ApplicationUserRole>();
 
-    // Private constructor for EF Core
-    private ApplicationUser() { }
+    // Parameterless constructor for EF Core and tests
+    public ApplicationUser() { }
 
     public ApplicationUser(
         string email,

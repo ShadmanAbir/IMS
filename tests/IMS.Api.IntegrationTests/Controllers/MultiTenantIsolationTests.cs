@@ -7,6 +7,9 @@ using Microsoft.Extensions.DependencyInjection;
 using IMS.Api.Infrastructure.Data;
 using Microsoft.AspNetCore.Identity;
 using IMS.Api.Domain.Entities;
+using IMS.Api.Application.Common.Models;
+using IMS.Api.Domain.ValueObjects;
+using IMS.Api.Domain.Aggregates;
 
 namespace IMS.Api.IntegrationTests.Controllers;
 
@@ -75,15 +78,7 @@ public class MultiTenantIsolationTests : IClassFixture<IntegrationTestWebApplica
     private async Task CreateTenantDataAsync(ApplicationDbContext context, UserManager<ApplicationUser> userManager, Guid tenantId, string email, string tenantName)
     {
         // Create user for tenant
-        var user = new ApplicationUser
-        {
-            UserName = email,
-            Email = email,
-            EmailConfirmed = true,
-            TenantId = tenantId,
-            FirstName = tenantName,
-            LastName = "User"
-        };
+        var user = new ApplicationUser(email, tenantName, "User", TenantId.Create(tenantId));
 
         var result = await userManager.CreateAsync(user, "TestPass123!");
         if (result.Succeeded)
@@ -91,74 +86,57 @@ public class MultiTenantIsolationTests : IClassFixture<IntegrationTestWebApplica
             await userManager.AddToRoleAsync(user, "SystemAdmin");
         }
 
-        // Create category for tenant
-        var category = new Category
-        {
-            Id = Guid.NewGuid(),
-            Name = $"{tenantName} Electronics",
-            Description = $"Electronics for {tenantName}",
-            TenantId = tenantId,
-            CreatedAtUtc = DateTime.UtcNow,
-            UpdatedAtUtc = DateTime.UtcNow
-        };
-        context.Categories.Add(category);
+        // Create category for tenant using domain factory
+        var category = Category.CreateRootCategory(
+            name: $"{tenantName} Electronics",
+            code: tenantName.Substring(0, Math.Min(10, tenantName.Length)).ToUpperInvariant(),
+            description: $"Electronics for {tenantName}",
+            sortOrder: 0,
+            isActive: true,
+            tenantId: TenantId.Create(tenantId),
+            createdBy: UserId.Create(Guid.Empty));
+        context.Add(category);
 
         // Create warehouse for tenant
-        var warehouse = new Warehouse
-        {
-            Id = Guid.NewGuid(),
-            Name = $"{tenantName} Warehouse",
-            Code = $"{tenantName.ToUpper()}WH",
-            Address = $"123 {tenantName} St",
-            City = $"{tenantName} City",
-            State = "TS",
-            PostalCode = "12345",
-            Country = "Test Country",
-            TenantId = tenantId,
-            CreatedAtUtc = DateTime.UtcNow,
-            UpdatedAtUtc = DateTime.UtcNow
-        };
-        context.Warehouses.Add(warehouse);
+        var warehouse = Warehouse.Create(
+            name: $"{tenantName} Warehouse",
+            code: $"{tenantName.ToUpper()}WH",
+            description: string.Empty,
+            address: $"123 {tenantName} St",
+            city: $"{tenantName} City",
+            state: "TS",
+            country: "Test Country",
+            postalCode: "12345",
+            latitude: null,
+            longitude: null,
+            isActive: true,
+            maxCapacity: null,
+            capacityUnit: null,
+            tenantId: TenantId.Create(tenantId),
+            createdBy: UserId.Create(Guid.Empty));
+        context.Add(warehouse);
 
-        // Create product for tenant
-        var product = new Product
-        {
-            Id = Guid.NewGuid(),
-            Name = $"{tenantName} Laptop",
-            Description = $"Laptop for {tenantName}",
-            CategoryId = category.Id,
-            TenantId = tenantId,
-            CreatedAtUtc = DateTime.UtcNow,
-            UpdatedAtUtc = DateTime.UtcNow
-        };
-        context.Products.Add(product);
+        // Create product for tenant via factory
+        var product = Product.Create($"{tenantName} Laptop", $"Laptop for {tenantName}", TenantId.Create(tenantId), category.Id);
+        context.Add(product);
 
-        // Create variant for tenant
-        var variant = new Variant
-        {
-            Id = Guid.NewGuid(),
-            ProductId = product.Id,
-            SKU = $"{tenantName.ToUpper()}-LAPTOP-001",
-            Name = $"{tenantName} Laptop - 16GB",
-            BaseUnit = "each",
-            TenantId = tenantId,
-            CreatedAtUtc = DateTime.UtcNow,
-            UpdatedAtUtc = DateTime.UtcNow
-        };
-        context.Variants.Add(variant);
+        // Create variant for tenant via factory
+        var sku = SKU.Create($"{tenantName.ToUpper()}-LAPTOP-001");
+        var variant = Variant.Create(sku, $"{tenantName} Laptop - 16GB", UnitOfMeasure.Piece, product.Id);
+        context.Add(variant);
 
         await context.SaveChangesAsync();
 
         // Store IDs for tests
         if (tenantId == _tenant1Id)
         {
-            _tenant1WarehouseId = warehouse.Id;
-            _tenant1VariantId = variant.Id;
+            _tenant1WarehouseId = warehouse.Id.Value;
+            _tenant1VariantId = variant.Id.Value;
         }
         else
         {
-            _tenant2WarehouseId = warehouse.Id;
-            _tenant2VariantId = variant.Id;
+            _tenant2WarehouseId = warehouse.Id.Value;
+            _tenant2VariantId = variant.Id.Value;
         }
     }
 

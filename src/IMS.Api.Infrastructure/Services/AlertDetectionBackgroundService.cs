@@ -88,18 +88,18 @@ public class AlertDetectionBackgroundService : BackgroundService
     {
         try
         {
-            // Get low stock variants
+            // Get low stock variants - use existing query shape (MaxResults)
             var lowStockQuery = new GetLowStockVariantsQuery
             {
-                PageNumber = 1,
-                PageSize = 100 // Process in batches
+                MaxResults = 100,
+                IncludeOutOfStock = true
             };
 
-            var lowStockVariants = await mediator.Send(lowStockQuery, cancellationToken);
+            var lowStockResult = await mediator.Send(lowStockQuery, cancellationToken);
 
-            if (lowStockVariants?.Items?.Any() == true)
+            if (lowStockResult != null && lowStockResult.IsSuccess && lowStockResult.Value != null && lowStockResult.Value.Any())
             {
-                foreach (var variant in lowStockVariants.Items)
+                foreach (var variant in lowStockResult.Value)
                 {
                     var severity = DetermineLowStockSeverity(variant.AvailableStock, variant.LowStockThreshold);
                     
@@ -121,7 +121,7 @@ public class AlertDetectionBackgroundService : BackgroundService
                     await notificationService.NotifyLowStockAlertAsync(alert);
                 }
 
-                _logger.LogInformation("Sent {Count} low stock alerts", lowStockVariants.Items.Count());
+                _logger.LogInformation("Sent {Count} low stock alerts", lowStockResult.Value.Count);
             }
         }
         catch (Exception ex)
@@ -137,16 +137,17 @@ public class AlertDetectionBackgroundService : BackgroundService
             // Get stock movement rates for the last hour to detect unusual patterns
             var movementRatesQuery = new GetStockMovementRatesQuery
             {
-                PeriodStart = DateTime.UtcNow.AddHours(-1),
-                PeriodEnd = DateTime.UtcNow
+                FromDate = DateTime.UtcNow.AddHours(-1),
+                ToDate = DateTime.UtcNow,
+                GroupBy = "hour"
             };
 
-            var movementRates = await mediator.Send(movementRatesQuery, cancellationToken);
+            var movementRatesResult = await mediator.Send(movementRatesQuery, cancellationToken);
 
-            if (movementRates?.MovementTypeRates?.Any() == true)
+            if (movementRatesResult != null && movementRatesResult.IsSuccess && movementRatesResult.Value != null && movementRatesResult.Value.MovementTypeRates.Any())
             {
                 // Check for unusual adjustment patterns
-                var adjustmentRate = movementRates.MovementTypeRates
+                var adjustmentRate = movementRatesResult.Value.MovementTypeRates
                     .FirstOrDefault(r => r.MovementType.Equals("Adjustment", StringComparison.OrdinalIgnoreCase));
 
                 if (adjustmentRate != null && IsUnusualAdjustmentPattern(adjustmentRate))
@@ -157,8 +158,8 @@ public class AlertDetectionBackgroundService : BackgroundService
                         PatternType = "FrequencySpike",
                         AdjustmentAmount = adjustmentRate.TotalQuantity,
                         AdjustmentCount = adjustmentRate.MovementCount,
-                        PeriodStart = movementRatesQuery.PeriodStart,
-                        PeriodEnd = movementRatesQuery.PeriodEnd,
+                        PeriodStart = movementRatesQuery.FromDate,
+                        PeriodEnd = movementRatesQuery.ToDate,
                         Description = $"Detected {adjustmentRate.MovementCount} adjustments totaling {adjustmentRate.TotalQuantity:N2} units in the last hour, which is above normal patterns.",
                         DetectedAtUtc = DateTime.UtcNow
                     };

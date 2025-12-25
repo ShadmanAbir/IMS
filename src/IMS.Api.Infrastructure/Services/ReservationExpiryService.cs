@@ -67,9 +67,6 @@ public class ReservationExpiryService : BackgroundService
             
             // Find active reservations that have expired
             var expiredReservations = await dbContext.Set<Reservation>()
-                .Include(r => r.Variant)
-                    .ThenInclude(v => v.Product)
-                .Include(r => r.Warehouse)
                 .Where(r => !r.IsDeleted &&
                            (r.Status == ReservationStatus.Active || r.Status == ReservationStatus.PartiallyFulfilled) &&
                            r.ExpiresAtUtc <= cutoffTime)
@@ -79,6 +76,18 @@ public class ReservationExpiryService : BackgroundService
             {
                 _logger.LogInformation("Found {Count} expired reservations to process", expiredReservations.Count);
 
+                // Load related variants and warehouses in batch to avoid navigation properties
+                var variantIds = expiredReservations.Select(r => r.VariantId.Value).Distinct().ToList();
+                var warehouseIds = expiredReservations.Select(r => r.WarehouseId.Value).Distinct().ToList();
+
+                var variants = await dbContext.Set<IMS.Api.Domain.Entities.Variant>()
+                    .Where(v => variantIds.Contains(v.Id.Value))
+                    .ToDictionaryAsync(v => v.Id.Value, v => v, cancellationToken);
+
+                var warehouses = await dbContext.Set<IMS.Api.Domain.Aggregates.Warehouse>()
+                    .Where(w => warehouseIds.Contains(w.Id.Value))
+                    .ToDictionaryAsync(w => w.Id.Value, w => w, cancellationToken);
+
                 foreach (var reservation in expiredReservations)
                 {
                     try
@@ -86,15 +95,18 @@ public class ReservationExpiryService : BackgroundService
                         reservation.Expire();
                         
                         // Send real-time notification about expired reservation
+                        variants.TryGetValue(reservation.VariantId.Value, out var variantEntity);
+                        warehouses.TryGetValue(reservation.WarehouseId.Value, out var warehouseEntity);
+
                         var alert = new ReservationExpiryAlertDto
                         {
                             Id = Guid.NewGuid(),
                             ReservationId = reservation.Id.Value,
                             VariantId = reservation.VariantId.Value,
-                            SKU = reservation.Variant?.Sku?.Value ?? "Unknown",
-                            VariantName = reservation.Variant?.Name ?? "Unknown",
+                            SKU = variantEntity?.Sku?.Value ?? "Unknown",
+                            VariantName = variantEntity?.Name ?? "Unknown",
                             WarehouseId = reservation.WarehouseId.Value,
-                            WarehouseName = reservation.Warehouse?.Name ?? "Unknown",
+                            WarehouseName = warehouseEntity?.Name ?? "Unknown",
                             ReservedQuantity = reservation.Quantity,
                             ExpiresAtUtc = reservation.ExpiresAtUtc,
                             ReferenceNumber = reservation.ReferenceNumber ?? string.Empty,
@@ -147,9 +159,6 @@ public class ReservationExpiryService : BackgroundService
             
             // Find active reservations that will expire within the warning period
             var expiringReservations = await dbContext.Set<Reservation>()
-                .Include(r => r.Variant)
-                    .ThenInclude(v => v.Product)
-                .Include(r => r.Warehouse)
                 .Where(r => !r.IsDeleted &&
                            (r.Status == ReservationStatus.Active || r.Status == ReservationStatus.PartiallyFulfilled) &&
                            r.ExpiresAtUtc > currentTime &&
@@ -160,20 +169,34 @@ public class ReservationExpiryService : BackgroundService
             {
                 _logger.LogInformation("Found {Count} reservations expiring within 30 minutes", expiringReservations.Count);
 
+                var variantIds = expiringReservations.Select(r => r.VariantId.Value).Distinct().ToList();
+                var warehouseIds = expiringReservations.Select(r => r.WarehouseId.Value).Distinct().ToList();
+
+                var variants = await dbContext.Set<IMS.Api.Domain.Entities.Variant>()
+                    .Where(v => variantIds.Contains(v.Id.Value))
+                    .ToDictionaryAsync(v => v.Id.Value, v => v, cancellationToken);
+
+                var warehouses = await dbContext.Set<IMS.Api.Domain.Aggregates.Warehouse>()
+                    .Where(w => warehouseIds.Contains(w.Id.Value))
+                    .ToDictionaryAsync(w => w.Id.Value, w => w, cancellationToken);
+
                 foreach (var reservation in expiringReservations)
                 {
                     try
                     {
                         // Send real-time notification about expiring reservation
+                        variants.TryGetValue(reservation.VariantId.Value, out var variantEntity);
+                        warehouses.TryGetValue(reservation.WarehouseId.Value, out var warehouseEntity);
+
                         var alert = new ReservationExpiryAlertDto
                         {
                             Id = Guid.NewGuid(),
                             ReservationId = reservation.Id.Value,
                             VariantId = reservation.VariantId.Value,
-                            SKU = reservation.Variant?.Sku?.Value ?? "Unknown",
-                            VariantName = reservation.Variant?.Name ?? "Unknown",
+                            SKU = variantEntity?.Sku?.Value ?? "Unknown",
+                            VariantName = variantEntity?.Name ?? "Unknown",
                             WarehouseId = reservation.WarehouseId.Value,
-                            WarehouseName = reservation.Warehouse?.Name ?? "Unknown",
+                            WarehouseName = warehouseEntity?.Name ?? "Unknown",
                             ReservedQuantity = reservation.Quantity,
                             ExpiresAtUtc = reservation.ExpiresAtUtc,
                             ReferenceNumber = reservation.ReferenceNumber ?? string.Empty,

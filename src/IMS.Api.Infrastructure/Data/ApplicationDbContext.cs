@@ -30,6 +30,9 @@ public class ApplicationDbContext : IdentityDbContext<
     // Aggregate Roots
     public DbSet<Product> Products { get; set; }
     public DbSet<InventoryItem> InventoryItems { get; set; }
+    public DbSet<Category> Categories { get; set; }
+    public DbSet<Warehouse> Warehouses { get; set; }
+    public DbSet<Reservation> Reservations { get; set; }
 
     // Entities
     public DbSet<Variant> Variants { get; set; }

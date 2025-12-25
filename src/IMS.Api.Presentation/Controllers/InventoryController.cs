@@ -166,9 +166,9 @@ public class InventoryController : ControllerBase
         var query = new GetLowStockVariantsQuery
         {
             WarehouseId = warehouseId,
-            Threshold = threshold,
-            Page = page,
-            PageSize = pageSize
+            CustomThreshold = threshold,
+            MaxResults = Math.Min(pageSize, 500),
+            IncludeOutOfStock = true
         };
 
         var result = await _mediator.Send(query);
@@ -185,7 +185,13 @@ public class InventoryController : ControllerBase
             });
         }
 
-        return Ok(result.Value);
+        // Handler returns a simple list (not paged). Apply page manually if needed.
+        var items = result.Value
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToList();
+
+        return Ok(items);
     }
 
     /// <summary>

@@ -52,9 +52,9 @@ public class StockMovementsController : ControllerBase
             VariantId = variantId,
             WarehouseId = warehouseId,
             MovementType = movementType,
-            FromDate = fromDate,
-            ToDate = toDate,
-            Page = page,
+            StartDate = fromDate,
+            EndDate = toDate,
+            PageNumber = page,
             PageSize = pageSize
         };
 
@@ -87,7 +87,7 @@ public class StockMovementsController : ControllerBase
         var query = new GetStockMovementHistoryQuery
         {
             ReferenceNumber = referenceNumber,
-            Page = 1,
+            PageNumber = 1,
             PageSize = 100 // Get all movements for this reference
         };
 
@@ -364,5 +364,38 @@ public class StockMovementsController : ControllerBase
         }
 
         return Ok(new { Message = "Opening balance set successfully" });
+    }
+
+    /// <summary>
+    /// Gets refund history by sale reference number
+    /// </summary>
+    /// <param name="saleReference">Sale reference number</param>
+    /// <returns>List of refund stock movements</returns>
+    [HttpGet("history/{saleReference}")]
+    public async Task<ActionResult<List<StockMovementDto>>> GetRefundHistory(string saleReference)
+    {
+        var query = new GetStockMovementHistoryQuery
+        {
+            ReferenceNumber = saleReference,
+            MovementType = "Refund",
+            PageNumber = 1,
+            PageSize = 100 // Get all refunds for this reference
+        };
+
+        var result = await _mediator.Send(query);
+
+        if (!result.IsSuccess)
+        {
+            return BadRequest(new
+            {
+                ErrorCode = result.ErrorCode,
+                Message = result.ErrorMessage,
+                Details = new Dictionary<string, object>(),
+                TimestampUtc = DateTime.UtcNow,
+                TraceId = HttpContext.TraceIdentifier
+            });
+        }
+
+        return Ok(result.Value.Items);
     }
 }

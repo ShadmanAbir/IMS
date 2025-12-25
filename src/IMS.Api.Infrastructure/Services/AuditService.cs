@@ -1,4 +1,5 @@
 using IMS.Api.Application.Common.Interfaces;
+using IMS.Api.Domain.Aggregates;
 using IMS.Api.Domain.Entities;
 using IMS.Api.Domain.Enums;
 using IMS.Api.Domain.ValueObjects;
@@ -36,11 +37,11 @@ public class AuditService : IAuditService
         string entityType,
         string entityId,
         string description,
-        object oldValues = null,
-        object newValues = null,
+        object? oldValues = null,
+        object? newValues = null,
         WarehouseId? warehouseId = null,
         VariantId? variantId = null,
-        string reason = null,
+        string? reason = null,
         CancellationToken cancellationToken = default)
     {
         try
@@ -152,7 +153,7 @@ public class AuditService : IAuditService
         WarehouseId warehouseId,
         string description,
         object oldValues = null,
-        object newValues = null,
+        object? newValues = null,
         string reason = null,
         CancellationToken cancellationToken = default)
     {
@@ -164,7 +165,7 @@ public class AuditService : IAuditService
 
             var auditLog = AuditLog.Create(
                 action,
-                nameof(Reservation),
+                "Reservation",
                 reservationId.ToString(),
                 actorId,
                 tenantId,

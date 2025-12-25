@@ -477,7 +477,7 @@ public class ReservationAndRefundWorkflowTests : IClassFixture<IntegrationTestWe
             await finalInventoryResponse.Content.ReadAsStringAsync(), _jsonOptions);
         
         // Reserved stock should be reduced if the expired reservation was cleaned up
-        finalInventory!.ReservedStock.Should().BeLessOrEqualTo(250);
-        finalInventory.AvailableStock.Should().BeGreaterOrEqualTo(250);
+        Assert.True(finalInventory!.ReservedStock <= 250m, $"Expected ReservedStock <= 250 but was {finalInventory.ReservedStock}");
+        Assert.True(finalInventory.AvailableStock >= 250m, $"Expected AvailableStock >= 250 but was {finalInventory.AvailableStock}");
     }
 }

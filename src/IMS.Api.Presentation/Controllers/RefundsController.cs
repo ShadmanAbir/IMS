@@ -218,7 +218,7 @@ public class RefundsController : ControllerBase
         {
             ReferenceNumber = saleReference,
             MovementType = "Refund",
-            Page = 1,
+            PageNumber = 1,
             PageSize = 100 // Get all refunds for this reference
         };
 
@@ -264,9 +264,9 @@ public class RefundsController : ControllerBase
             VariantId = variantId,
             WarehouseId = warehouseId,
             MovementType = "Refund",
-            FromDate = fromDate,
-            ToDate = toDate,
-            Page = page,
+            StartDate = fromDate,
+            EndDate = toDate,
+            PageNumber = page,
             PageSize = pageSize
         };
 
@@ -305,9 +305,9 @@ public class RefundsController : ControllerBase
         {
             WarehouseId = warehouseId,
             MovementType = "Refund",
-            FromDate = fromDate,
-            ToDate = toDate,
-            Page = 1,
+            StartDate = fromDate,
+            EndDate = toDate,
+            PageNumber = 1,
             PageSize = 1000 // Get a large number for statistics calculation
         };
 

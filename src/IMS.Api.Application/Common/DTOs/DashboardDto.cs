@@ -33,6 +33,20 @@ public class WarehouseStockDto
     public int OutOfStockVariantCount { get; set; }
     public int ExpiredVariantCount { get; set; }
     public DateTime LastUpdatedUtc { get; set; }
+
+    // Per-variant breakdown for the warehouse (added for tests)
+    public List<VariantStockDto> VariantStockLevels { get; set; } = new();
+}
+
+public class VariantStockDto
+{
+    public Guid VariantId { get; set; }
+    public string SKU { get; set; } = string.Empty;
+    public string VariantName { get; set; } = string.Empty;
+    public decimal TotalStock { get; set; }
+    public decimal AvailableStock { get; set; }
+    public decimal ReservedStock { get; set; }
+    public Guid ProductId { get; set; }
 }
 
 /// <summary>

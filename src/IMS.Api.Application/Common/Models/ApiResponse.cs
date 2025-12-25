@@ -75,7 +75,7 @@ public class ApiResponse
 /// <typeparam name="T">The type of items in the collection</typeparam>
 public class PaginatedApiResponse<T> : ApiResponse<PagedResult<T>>
 {
-    public static PaginatedApiResponse<T> SuccessResponse(PagedResult<T> pagedData, string? message = null)
+    public static new PaginatedApiResponse<T> SuccessResponse(PagedResult<T> pagedData, string? message = null)
     {
         return new PaginatedApiResponse<T>
         {
@@ -85,7 +85,7 @@ public class PaginatedApiResponse<T> : ApiResponse<PagedResult<T>>
         };
     }
 
-    public static PaginatedApiResponse<T> ErrorResponse(string errorCode, string message, Dictionary<string, object>? details = null)
+    public static new PaginatedApiResponse<T> ErrorResponse(string errorCode, string message, Dictionary<string, object>? details = null)
     {
         return new PaginatedApiResponse<T>
         {

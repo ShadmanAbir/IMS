@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using IMS.Api.Application.Common.Models;
+using MediatR;
 
 namespace IMS.Api.Presentation.Controllers;
 
@@ -9,6 +10,13 @@ namespace IMS.Api.Presentation.Controllers;
 [ApiController]
 public abstract class BaseController : ControllerBase
 {
+    protected readonly IMediator Mediator;
+
+    protected BaseController(IMediator mediator)
+    {
+        Mediator = mediator;
+    }
+
     /// <summary>
     /// Gets the current user ID from JWT claims
     /// </summary>

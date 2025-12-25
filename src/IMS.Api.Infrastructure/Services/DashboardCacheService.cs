@@ -7,6 +7,7 @@ using IMS.Api.Domain.Entities;
 using IMS.Api.Domain.ValueObjects;
 using IMS.Api.Infrastructure.Data;
 using System.Text.Json;
+using IMS.Api.Domain.Aggregates; // <- added to resolve Warehouse type
 
 namespace IMS.Api.Infrastructure.Services;
 

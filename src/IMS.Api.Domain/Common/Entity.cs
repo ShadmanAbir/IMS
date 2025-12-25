@@ -3,7 +3,7 @@ namespace IMS.Api.Domain.Common;
 public abstract class Entity<TId> : IEquatable<Entity<TId>>
     where TId : notnull
 {
-    public TId Id { get; protected set; }
+    public TId Id { get; set; }
 
     protected Entity(TId id)
     {

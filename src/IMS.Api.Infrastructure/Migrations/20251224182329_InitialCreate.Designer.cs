@@ -4,7 +4,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations;
-using Microsoft.EntityFrameworkCore.SqlServer;
 using IMS.Api.Infrastructure.Data;
 
 #nullable disable
@@ -22,8 +21,6 @@ namespace IMS.Api.Infrastructure.Migrations
             modelBuilder
                 .HasAnnotation("ProductVersion", "10.0.1")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
-
-            SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
             modelBuilder.Entity("IMS.Api.Domain.Aggregates.InventoryItem", b =>
                 {
@@ -352,8 +349,6 @@ namespace IMS.Api.Infrastructure.Migrations
                             b1.Property<int>("Id")
                                 .ValueGeneratedOnAdd()
                                 .HasColumnType("int");
-
-                            SqlServerPropertyBuilderExtensions.UseIdentityColumn(b1.Property<int>("Id"));
 
                             b1.Property<decimal>("ConversionFactor")
                                 .HasPrecision(18, 6)

@@ -1,0 +1,237 @@
+using Microsoft.AspNetCore.SignalR;
+using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
+
+namespace IMS.Api.Presentation.Hubs;
+
+/// <summary>
+/// SignalR hub for real-time dashboard communications
+/// Handles connection management, group subscriptions, and real-time notifications
+/// </summary>
+[Authorize]
+public class DashboardHub : Hub
+{
+    private readonly ILogger<DashboardHub> _logger;
+
+    public DashboardHub(ILogger<DashboardHub> logger)
+    {
+        _logger = logger;
+    }
+
+    /// <summary>
+    /// Join a warehouse-specific group to receive warehouse-related updates
+    /// </summary>
+    /// <param name="warehouseId">The warehouse ID to subscribe to</param>
+    public async Task JoinWarehouseGroup(string warehouseId)
+    {
+        if (string.IsNullOrWhiteSpace(warehouseId))
+        {
+            _logger.LogWarning("Attempted to join warehouse group with empty warehouseId. ConnectionId: {ConnectionId}", Context.ConnectionId);
+            return;
+        }
+
+        var groupName = $"warehouse-{warehouseId}";
+        await Groups.AddToGroupAsync(Context.ConnectionId, groupName);
+        
+        _logger.LogInformation("Connection {ConnectionId} joined warehouse group {GroupName}", 
+            Context.ConnectionId, groupName);
+
+        // Notify the client that they've successfully joined the group
+        await Clients.Caller.SendAsync("JoinedWarehouseGroup", warehouseId);
+    }
+
+    /// <summary>
+    /// Leave a warehouse-specific group
+    /// </summary>
+    /// <param name="warehouseId">The warehouse ID to unsubscribe from</param>
+    public async Task LeaveWarehouseGroup(string warehouseId)
+    {
+        if (string.IsNullOrWhiteSpace(warehouseId))
+        {
+            _logger.LogWarning("Attempted to leave warehouse group with empty warehouseId. ConnectionId: {ConnectionId}", Context.ConnectionId);
+            return;
+        }
+
+        var groupName = $"warehouse-{warehouseId}";
+        await Groups.RemoveFromGroupAsync(Context.ConnectionId, groupName);
+        
+        _logger.LogInformation("Connection {ConnectionId} left warehouse group {GroupName}", 
+            Context.ConnectionId, groupName);
+
+        await Clients.Caller.SendAsync("LeftWarehouseGroup", warehouseId);
+    }
+
+    /// <summary>
+    /// Join a variant-specific group to receive variant-related updates
+    /// </summary>
+    /// <param name="variantId">The variant ID to subscribe to</param>
+    public async Task JoinVariantGroup(string variantId)
+    {
+        if (string.IsNullOrWhiteSpace(variantId))
+        {
+            _logger.LogWarning("Attempted to join variant group with empty variantId. ConnectionId: {ConnectionId}", Context.ConnectionId);
+            return;
+        }
+
+        var groupName = $"variant-{variantId}";
+        await Groups.AddToGroupAsync(Context.ConnectionId, groupName);
+        
+        _logger.LogInformation("Connection {ConnectionId} joined variant group {GroupName}", 
+            Context.ConnectionId, groupName);
+
+        await Clients.Caller.SendAsync("JoinedVariantGroup", variantId);
+    }
+
+    /// <summary>
+    /// Leave a variant-specific group
+    /// </summary>
+    /// <param name="variantId">The variant ID to unsubscribe from</param>
+    public async Task LeaveVariantGroup(string variantId)
+    {
+        if (string.IsNullOrWhiteSpace(variantId))
+        {
+            _logger.LogWarning("Attempted to leave variant group with empty variantId. ConnectionId: {ConnectionId}", Context.ConnectionId);
+            return;
+        }
+
+        var groupName = $"variant-{variantId}";
+        await Groups.RemoveFromGroupAsync(Context.ConnectionId, groupName);
+        
+        _logger.LogInformation("Connection {ConnectionId} left variant group {GroupName}", 
+            Context.ConnectionId, groupName);
+
+        await Clients.Caller.SendAsync("LeftVariantGroup", variantId);
+    }
+
+    /// <summary>
+    /// Subscribe to specific alert types
+    /// </summary>
+    /// <param name="alertType">The type of alerts to subscribe to (e.g., "low-stock", "out-of-stock", "reservation-expiry")</param>
+    public async Task SubscribeToAlerts(string alertType)
+    {
+        if (string.IsNullOrWhiteSpace(alertType))
+        {
+            _logger.LogWarning("Attempted to subscribe to alerts with empty alertType. ConnectionId: {ConnectionId}", Context.ConnectionId);
+            return;
+        }
+
+        var groupName = $"alerts-{alertType.ToLowerInvariant()}";
+        await Groups.AddToGroupAsync(Context.ConnectionId, groupName);
+        
+        _logger.LogInformation("Connection {ConnectionId} subscribed to alert group {GroupName}", 
+            Context.ConnectionId, groupName);
+
+        await Clients.Caller.SendAsync("SubscribedToAlerts", alertType);
+    }
+
+    /// <summary>
+    /// Unsubscribe from specific alert types
+    /// </summary>
+    /// <param name="alertType">The type of alerts to unsubscribe from</param>
+    public async Task UnsubscribeFromAlerts(string alertType)
+    {
+        if (string.IsNullOrWhiteSpace(alertType))
+        {
+            _logger.LogWarning("Attempted to unsubscribe from alerts with empty alertType. ConnectionId: {ConnectionId}", Context.ConnectionId);
+            return;
+        }
+
+        var groupName = $"alerts-{alertType.ToLowerInvariant()}";
+        await Groups.RemoveFromGroupAsync(Context.ConnectionId, groupName);
+        
+        _logger.LogInformation("Connection {ConnectionId} unsubscribed from alert group {GroupName}", 
+            Context.ConnectionId, groupName);
+
+        await Clients.Caller.SendAsync("UnsubscribedFromAlerts", alertType);
+    }
+
+    /// <summary>
+    /// Subscribe to general dashboard metrics updates
+    /// </summary>
+    public async Task SubscribeToDashboardMetrics()
+    {
+        var groupName = "dashboard-metrics";
+        await Groups.AddToGroupAsync(Context.ConnectionId, groupName);
+        
+        _logger.LogInformation("Connection {ConnectionId} subscribed to dashboard metrics", Context.ConnectionId);
+
+        await Clients.Caller.SendAsync("SubscribedToDashboardMetrics");
+    }
+
+    /// <summary>
+    /// Unsubscribe from general dashboard metrics updates
+    /// </summary>
+    public async Task UnsubscribeFromDashboardMetrics()
+    {
+        var groupName = "dashboard-metrics";
+        await Groups.RemoveFromGroupAsync(Context.ConnectionId, groupName);
+        
+        _logger.LogInformation("Connection {ConnectionId} unsubscribed from dashboard metrics", Context.ConnectionId);
+
+        await Clients.Caller.SendAsync("UnsubscribedFromDashboardMetrics");
+    }
+
+    /// <summary>
+    /// Get current connection information
+    /// </summary>
+    public async Task GetConnectionInfo()
+    {
+        var userId = Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        var tenantId = Context.User?.FindFirst("tenant_id")?.Value;
+        
+        var connectionInfo = new
+        {
+            ConnectionId = Context.ConnectionId,
+            UserId = userId,
+            TenantId = tenantId,
+            ConnectedAt = DateTime.UtcNow
+        };
+
+        await Clients.Caller.SendAsync("ConnectionInfo", connectionInfo);
+    }
+
+    /// <summary>
+    /// Called when a client connects to the hub
+    /// </summary>
+    public override async Task OnConnectedAsync()
+    {
+        var userId = Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        var tenantId = Context.User?.FindFirst("tenant_id")?.Value;
+        
+        _logger.LogInformation("Client connected to DashboardHub. ConnectionId: {ConnectionId}, UserId: {UserId}, TenantId: {TenantId}", 
+            Context.ConnectionId, userId, tenantId);
+
+        // Automatically join tenant-specific group if tenant ID is available
+        if (!string.IsNullOrWhiteSpace(tenantId))
+        {
+            var tenantGroupName = $"tenant-{tenantId}";
+            await Groups.AddToGroupAsync(Context.ConnectionId, tenantGroupName);
+            _logger.LogInformation("Connection {ConnectionId} automatically joined tenant group {GroupName}", 
+                Context.ConnectionId, tenantGroupName);
+        }
+
+        await base.OnConnectedAsync();
+    }
+
+    /// <summary>
+    /// Called when a client disconnects from the hub
+    /// </summary>
+    /// <param name="exception">Exception that caused the disconnection, if any</param>
+    public override async Task OnDisconnectedAsync(Exception? exception)
+    {
+        var userId = Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        
+        if (exception != null)
+        {
+            _logger.LogWarning(exception, "Client disconnected from DashboardHub with exception. ConnectionId: {ConnectionId}, UserId: {UserId}", 
+                Context.ConnectionId, userId);
+        }
+        else
+        {
+            _logger.LogInformation("Client disconnected from DashboardHub. ConnectionId: {ConnectionId}, UserId: {UserId}", 
+                Context.ConnectionId, userId);
+        }
+
+        await base.OnDisconnectedAsync(exception);
+    }
+}

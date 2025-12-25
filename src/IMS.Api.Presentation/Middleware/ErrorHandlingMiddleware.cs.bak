@@ -1,0 +1,150 @@
+using System.Net;
+using System.Text.Json;
+using FluentValidation;
+
+namespace IMS.Api.Presentation.Middleware;
+
+/// <summary>
+/// Middleware for handling exceptions and providing structured error responses
+/// </summary>
+public class ErrorHandlingMiddleware
+{
+    private readonly RequestDelegate _next;
+    private readonly ILogger<ErrorHandlingMiddleware> _logger;
+
+    public ErrorHandlingMiddleware(RequestDelegate next, ILogger<ErrorHandlingMiddleware> logger)
+    {
+        _next = next;
+        _logger = logger;
+    }
+
+    public async Task InvokeAsync(HttpContext context)
+    {
+        try
+        {
+            await _next(context);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "An unhandled exception occurred. TraceId: {TraceId}", context.TraceIdentifier);
+            await HandleExceptionAsync(context, ex);
+        }
+    }
+
+    private static async Task HandleExceptionAsync(HttpContext context, Exception exception)
+    {
+        context.Response.ContentType = "application/json";
+        
+        var (statusCode, errorCode, message, details) = GetErrorDetails(exception);
+        
+        var response = new ApiErrorResponse
+        {
+            ErrorCode = errorCode,
+            Message = message,
+            Details = details,
+            TimestampUtc = DateTime.UtcNow,
+            TraceId = context.TraceIdentifier
+        };
+
+        context.Response.StatusCode = statusCode;
+
+        var jsonResponse = JsonSerializer.Serialize(response, new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            WriteIndented = false
+        });
+
+        await context.Response.WriteAsync(jsonResponse);
+    }
+
+    private static (int statusCode, string errorCode, string message, Dictionary<string, object> details) GetErrorDetails(Exception exception)
+    {
+        return exception switch
+        {
+            ValidationException validationEx => (
+                (int)HttpStatusCode.BadRequest,
+                "VALIDATION_FAILED",
+                "One or more validation errors occurred",
+                new Dictionary<string, object>
+                {
+                    ["validationErrors"] = validationEx.Errors.Select(e => new
+                    {
+                        PropertyName = e.PropertyName,
+                        ErrorMessage = e.ErrorMessage,
+                        AttemptedValue = e.AttemptedValue
+                    }).ToList()
+                }
+            ),
+            
+            ArgumentException argEx => (
+                (int)HttpStatusCode.BadRequest,
+                "INVALID_ARGUMENT",
+                argEx.Message,
+                new Dictionary<string, object>
+                {
+                    ["parameterName"] = argEx.ParamName ?? "unknown"
+                }
+            ),
+            
+            ArgumentNullException nullEx => (
+                (int)HttpStatusCode.BadRequest,
+                "REQUIRED_FIELD_MISSING",
+                nullEx.Message,
+                new Dictionary<string, object>
+                {
+                    ["parameterName"] = nullEx.ParamName ?? "unknown"
+                }
+            ),
+            
+            InvalidOperationException invalidOpEx => (
+                (int)HttpStatusCode.BadRequest,
+                "BUSINESS_RULE_VIOLATION",
+                invalidOpEx.Message,
+                new Dictionary<string, object>()
+            ),
+            
+            UnauthorizedAccessException => (
+                (int)HttpStatusCode.Unauthorized,
+                "UNAUTHORIZED",
+                "Access denied. Please ensure you are authenticated and have the required permissions.",
+                new Dictionary<string, object>()
+            ),
+            
+            NotSupportedException notSupportedEx => (
+                (int)HttpStatusCode.BadRequest,
+                "OPERATION_NOT_SUPPORTED",
+                notSupportedEx.Message,
+                new Dictionary<string, object>()
+            ),
+            
+            TimeoutException => (
+                (int)HttpStatusCode.RequestTimeout,
+                "REQUEST_TIMEOUT",
+                "The request timed out. Please try again later.",
+                new Dictionary<string, object>()
+            ),
+            
+            _ => (
+                (int)HttpStatusCode.InternalServerError,
+                "INTERNAL_SERVER_ERROR",
+                "An internal server error occurred. Please contact support if the problem persists.",
+                new Dictionary<string, object>
+                {
+                    ["exceptionType"] = exception.GetType().Name
+                }
+            )
+        };
+    }
+}
+
+/// <summary>
+/// Standardized API error response model
+/// </summary>
+public class ApiErrorResponse
+{
+    public string ErrorCode { get; set; } = string.Empty;
+    public string Message { get; set; } = string.Empty;
+    public Dictionary<string, object> Details { get; set; } = new();
+    public DateTime TimestampUtc { get; set; }
+    public string TraceId { get; set; } = string.Empty;
+}

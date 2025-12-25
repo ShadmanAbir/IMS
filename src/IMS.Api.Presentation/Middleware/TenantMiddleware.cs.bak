@@ -1,0 +1,60 @@
+using System.Security.Claims;
+using IMS.Api.Application.Common.Interfaces;
+using IMS.Api.Domain.ValueObjects;
+
+namespace IMS.Api.Presentation.Middleware;
+
+/// <summary>
+/// Middleware to extract and set tenant context from JWT tokens
+/// </summary>
+public class TenantMiddleware
+{
+    private readonly RequestDelegate _next;
+    private readonly ILogger<TenantMiddleware> _logger;
+
+    public TenantMiddleware(RequestDelegate next, ILogger<TenantMiddleware> logger)
+    {
+        _next = next;
+        _logger = logger;
+    }
+
+    public async Task InvokeAsync(HttpContext context, ITenantContext tenantContext)
+    {
+        try
+        {
+            // Extract tenant information from JWT claims
+            if (context.User.Identity?.IsAuthenticated == true)
+            {
+                var tenantIdClaim = context.User.FindFirst("tenant_id")?.Value;
+                var userIdClaim = context.User.FindFirst("user_id")?.Value ?? 
+                                 context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+                if (tenantIdClaim != null && Guid.TryParse(tenantIdClaim, out var tenantId))
+                {
+                    var tenantValueObject = TenantId.Create(tenantId);
+                    UserId? userValueObject = null;
+
+                    if (userIdClaim != null && Guid.TryParse(userIdClaim, out var userId))
+                    {
+                        userValueObject = UserId.Create(userId);
+                    }
+
+                    tenantContext.SetTenantContext(tenantValueObject, userValueObject);
+
+                    _logger.LogDebug("Tenant context set: TenantId={TenantId}, UserId={UserId}", 
+                        tenantId, userId);
+                }
+                else
+                {
+                    _logger.LogWarning("No valid tenant ID found in JWT claims for authenticated user");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error setting tenant context");
+        }
+
+        await _next(context);
+    }
+}

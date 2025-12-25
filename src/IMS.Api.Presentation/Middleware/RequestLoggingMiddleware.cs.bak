@@ -1,0 +1,233 @@
+using System.Diagnostics;
+using System.Text;
+
+namespace IMS.Api.Presentation.Middleware;
+
+/// <summary>
+/// Middleware for logging HTTP requests and responses
+/// </summary>
+public class RequestLoggingMiddleware
+{
+    private readonly RequestDelegate _next;
+    private readonly ILogger<RequestLoggingMiddleware> _logger;
+
+    public RequestLoggingMiddleware(RequestDelegate next, ILogger<RequestLoggingMiddleware> logger)
+    {
+        _next = next;
+        _logger = logger;
+    }
+
+    public async Task InvokeAsync(HttpContext context)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        var requestId = context.TraceIdentifier;
+
+        // Log request
+        await LogRequestAsync(context, requestId);
+
+        // Capture response
+        var originalBodyStream = context.Response.Body;
+        using var responseBodyStream = new MemoryStream();
+        context.Response.Body = responseBodyStream;
+
+        try
+        {
+            await _next(context);
+        }
+        finally
+        {
+            stopwatch.Stop();
+            
+            // Log response
+            await LogResponseAsync(context, requestId, stopwatch.ElapsedMilliseconds, responseBodyStream);
+
+            // Copy response back to original stream
+            responseBodyStream.Seek(0, SeekOrigin.Begin);
+            await responseBodyStream.CopyToAsync(originalBodyStream);
+        }
+    }
+
+    private async Task LogRequestAsync(HttpContext context, string requestId)
+    {
+        try
+        {
+            var request = context.Request;
+            var userId = GetUserId(context);
+            var userAgent = request.Headers["User-Agent"].FirstOrDefault() ?? "Unknown";
+            var ipAddress = context.Connection.RemoteIpAddress?.ToString() ?? "Unknown";
+
+            var logData = new
+            {
+                RequestId = requestId,
+                Method = request.Method,
+                Path = request.Path.Value,
+                QueryString = request.QueryString.Value,
+                UserId = userId,
+                UserAgent = userAgent,
+                IpAddress = ipAddress,
+                ContentType = request.ContentType,
+                ContentLength = request.ContentLength,
+                Headers = GetSafeHeaders(request.Headers),
+                Timestamp = DateTime.UtcNow
+            };
+
+            _logger.LogInformation("HTTP Request: {RequestData}", System.Text.Json.JsonSerializer.Serialize(logData));
+
+            // Log request body for POST/PUT/PATCH requests (but not for file uploads)
+            if (ShouldLogRequestBody(request))
+            {
+                var body = await GetRequestBodyAsync(request);
+                if (!string.IsNullOrEmpty(body))
+                {
+                    _logger.LogDebug("Request Body for {RequestId}: {Body}", requestId, body);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error logging request for {RequestId}", requestId);
+        }
+    }
+
+    private async Task LogResponseAsync(HttpContext context, string requestId, long elapsedMs, MemoryStream responseBodyStream)
+    {
+        try
+        {
+            var response = context.Response;
+            var responseBody = await GetResponseBodyAsync(responseBodyStream);
+
+            var logData = new
+            {
+                RequestId = requestId,
+                StatusCode = response.StatusCode,
+                ContentType = response.ContentType,
+                ContentLength = responseBodyStream.Length,
+                ElapsedMilliseconds = elapsedMs,
+                Headers = GetSafeHeaders(response.Headers),
+                Timestamp = DateTime.UtcNow
+            };
+
+            var logLevel = GetLogLevel(response.StatusCode);
+            _logger.Log(logLevel, "HTTP Response: {ResponseData}", System.Text.Json.JsonSerializer.Serialize(logData));
+
+            // Log response body for errors or debug level
+            if (ShouldLogResponseBody(response, responseBody))
+            {
+                _logger.LogDebug("Response Body for {RequestId}: {Body}", requestId, responseBody);
+            }
+
+            // Log performance warning for slow requests
+            if (elapsedMs > 5000) // 5 seconds
+            {
+                _logger.LogWarning("Slow request detected: {RequestId} took {ElapsedMs}ms", requestId, elapsedMs);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error logging response for {RequestId}", requestId);
+        }
+    }
+
+    private static string? GetUserId(HttpContext context)
+    {
+        var userIdClaim = context.User?.FindFirst("sub") ?? context.User?.FindFirst("userId");
+        return userIdClaim?.Value;
+    }
+
+    private static Dictionary<string, string> GetSafeHeaders(IHeaderDictionary headers)
+    {
+        var safeHeaders = new Dictionary<string, string>();
+        var sensitiveHeaders = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "Authorization", "Cookie", "Set-Cookie", "X-API-Key", "X-Auth-Token"
+        };
+
+        foreach (var header in headers)
+        {
+            if (sensitiveHeaders.Contains(header.Key))
+            {
+                safeHeaders[header.Key] = "[REDACTED]";
+            }
+            else
+            {
+                safeHeaders[header.Key] = header.Value.ToString();
+            }
+        }
+
+        return safeHeaders;
+    }
+
+    private static bool ShouldLogRequestBody(HttpRequest request)
+    {
+        if (request.Method != "POST" && request.Method != "PUT" && request.Method != "PATCH")
+            return false;
+
+        var contentType = request.ContentType?.ToLowerInvariant();
+        if (string.IsNullOrEmpty(contentType))
+            return false;
+
+        // Don't log binary content
+        if (contentType.Contains("multipart/form-data") ||
+            contentType.Contains("application/octet-stream") ||
+            contentType.Contains("image/") ||
+            contentType.Contains("video/") ||
+            contentType.Contains("audio/"))
+        {
+            return false;
+        }
+
+        // Only log JSON and form data
+        return contentType.Contains("application/json") || 
+               contentType.Contains("application/x-www-form-urlencoded");
+    }
+
+    private static bool ShouldLogResponseBody(HttpResponse response, string responseBody)
+    {
+        // Log response body for errors or if it's small
+        return response.StatusCode >= 400 || 
+               (responseBody.Length < 1000 && response.ContentType?.Contains("application/json") == true);
+    }
+
+    private static async Task<string> GetRequestBodyAsync(HttpRequest request)
+    {
+        try
+        {
+            request.EnableBuffering();
+            request.Body.Position = 0;
+
+            using var reader = new StreamReader(request.Body, Encoding.UTF8, leaveOpen: true);
+            var body = await reader.ReadToEndAsync();
+            request.Body.Position = 0;
+
+            return body;
+        }
+        catch
+        {
+            return "[Error reading request body]";
+        }
+    }
+
+    private static async Task<string> GetResponseBodyAsync(MemoryStream responseBodyStream)
+    {
+        try
+        {
+            responseBodyStream.Seek(0, SeekOrigin.Begin);
+            using var reader = new StreamReader(responseBodyStream, Encoding.UTF8, leaveOpen: true);
+            return await reader.ReadToEndAsync();
+        }
+        catch
+        {
+            return "[Error reading response body]";
+        }
+    }
+
+    private static LogLevel GetLogLevel(int statusCode)
+    {
+        return statusCode switch
+        {
+            >= 500 => LogLevel.Error,
+            >= 400 => LogLevel.Warning,
+            _ => LogLevel.Information
+        };
+    }
+}

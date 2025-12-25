@@ -1,0 +1,99 @@
+using FluentValidation;
+using System.Text.Json;
+
+namespace IMS.Api.Presentation.Middleware;
+
+/// <summary>
+/// Middleware for automatic model validation using FluentValidation
+/// </summary>
+public class ValidationMiddleware
+{
+    private readonly RequestDelegate _next;
+    private readonly ILogger<ValidationMiddleware> _logger;
+
+    public ValidationMiddleware(RequestDelegate next, ILogger<ValidationMiddleware> logger)
+    {
+        _next = next;
+        _logger = logger;
+    }
+
+    public async Task InvokeAsync(HttpContext context)
+    {
+        // Only validate POST, PUT, PATCH requests with JSON content
+        if (ShouldValidate(context))
+        {
+            await ValidateRequestAsync(context);
+        }
+
+        await _next(context);
+    }
+
+    private static bool ShouldValidate(HttpContext context)
+    {
+        var method = context.Request.Method;
+        var contentType = context.Request.ContentType;
+
+        return (method == "POST" || method == "PUT" || method == "PATCH") &&
+               !string.IsNullOrEmpty(contentType) &&
+               contentType.Contains("application/json", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private async Task ValidateRequestAsync(HttpContext context)
+    {
+        try
+        {
+            // Enable buffering to allow multiple reads of the request body
+            context.Request.EnableBuffering();
+
+            // Read the request body
+            var body = await new StreamReader(context.Request.Body).ReadToEndAsync();
+            context.Request.Body.Position = 0; // Reset position for the next middleware
+
+            if (string.IsNullOrWhiteSpace(body))
+            {
+                await WriteValidationErrorAsync(context, "EMPTY_REQUEST_BODY", "Request body cannot be empty");
+                return;
+            }
+
+            // Try to parse JSON
+            try
+            {
+                using var document = JsonDocument.Parse(body);
+                // JSON is valid, continue
+            }
+            catch (JsonException jsonEx)
+            {
+                _logger.LogWarning("Invalid JSON in request body: {Error}", jsonEx.Message);
+                await WriteValidationErrorAsync(context, "INVALID_JSON", "Request body contains invalid JSON");
+                return;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during request validation");
+            // Don't block the request if validation fails unexpectedly
+        }
+    }
+
+    private static async Task WriteValidationErrorAsync(HttpContext context, string errorCode, string message)
+    {
+        context.Response.StatusCode = 400;
+        context.Response.ContentType = "application/json";
+
+        var errorResponse = new
+        {
+            ErrorCode = errorCode,
+            Message = message,
+            Details = new Dictionary<string, object>(),
+            TimestampUtc = DateTime.UtcNow,
+            TraceId = context.TraceIdentifier
+        };
+
+        var json = JsonSerializer.Serialize(errorResponse, new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        });
+
+        await context.Response.WriteAsync(json);
+    }
+}

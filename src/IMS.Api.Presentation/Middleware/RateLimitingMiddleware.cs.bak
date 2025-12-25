@@ -1,0 +1,176 @@
+using System.Collections.Concurrent;
+using System.Text.Json;
+
+namespace IMS.Api.Presentation.Middleware;
+
+/// <summary>
+/// Middleware for rate limiting API requests
+/// </summary>
+public class RateLimitingMiddleware
+{
+    private readonly RequestDelegate _next;
+    private readonly ILogger<RateLimitingMiddleware> _logger;
+    private readonly ConcurrentDictionary<string, UserRateLimit> _rateLimits = new();
+    private readonly Timer _cleanupTimer;
+
+    // Rate limiting configuration
+    private readonly int _maxRequestsPerMinute = 100;
+    private readonly int _maxRequestsPerHour = 1000;
+    private readonly TimeSpan _windowSize = TimeSpan.FromMinutes(1);
+
+    public RateLimitingMiddleware(RequestDelegate next, ILogger<RateLimitingMiddleware> logger)
+    {
+        _next = next;
+        _logger = logger;
+        
+        // Cleanup expired entries every 5 minutes
+        _cleanupTimer = new Timer(CleanupExpiredEntries, null, TimeSpan.FromMinutes(5), TimeSpan.FromMinutes(5));
+    }
+
+    public async Task InvokeAsync(HttpContext context)
+    {
+        var clientId = GetClientIdentifier(context);
+        
+        if (!string.IsNullOrEmpty(clientId))
+        {
+            var rateLimit = _rateLimits.GetOrAdd(clientId, _ => new UserRateLimit());
+            
+            if (!rateLimit.IsAllowed())
+            {
+                _logger.LogWarning("Rate limit exceeded for client: {ClientId}", clientId);
+                await WriteRateLimitExceededResponseAsync(context, rateLimit);
+                return;
+            }
+            
+            rateLimit.RecordRequest();
+            
+            // Add rate limit headers to response
+            AddRateLimitHeaders(context, rateLimit);
+        }
+
+        await _next(context);
+    }
+
+    private static string GetClientIdentifier(HttpContext context)
+    {
+        // Try to get user ID from JWT token
+        var userIdClaim = context.User?.FindFirst("sub") ?? context.User?.FindFirst("userId");
+        if (userIdClaim != null)
+        {
+            return $"user:{userIdClaim.Value}";
+        }
+
+        // Fall back to IP address
+        var ipAddress = context.Connection.RemoteIpAddress?.ToString();
+        if (!string.IsNullOrEmpty(ipAddress))
+        {
+            return $"ip:{ipAddress}";
+        }
+
+        // Fall back to a combination of headers for anonymous requests
+        var userAgent = context.Request.Headers["User-Agent"].FirstOrDefault() ?? "unknown";
+        var forwarded = context.Request.Headers["X-Forwarded-For"].FirstOrDefault() ?? "unknown";
+        return $"anonymous:{userAgent}:{forwarded}".GetHashCode().ToString();
+    }
+
+    private static void AddRateLimitHeaders(HttpContext context, UserRateLimit rateLimit)
+    {
+        context.Response.Headers["X-RateLimit-Limit"] = "100";
+        context.Response.Headers["X-RateLimit-Remaining"] = Math.Max(0, 100 - rateLimit.RequestCount).ToString();
+        context.Response.Headers["X-RateLimit-Reset"] = rateLimit.WindowStart.Add(TimeSpan.FromMinutes(1)).ToString("O");
+    }
+
+    private static async Task WriteRateLimitExceededResponseAsync(HttpContext context, UserRateLimit rateLimit)
+    {
+        context.Response.StatusCode = 429; // Too Many Requests
+        context.Response.ContentType = "application/json";
+
+        var resetTime = rateLimit.WindowStart.Add(TimeSpan.FromMinutes(1));
+        var retryAfter = (int)(resetTime - DateTime.UtcNow).TotalSeconds;
+
+        context.Response.Headers["Retry-After"] = Math.Max(1, retryAfter).ToString();
+        context.Response.Headers["X-RateLimit-Limit"] = "100";
+        context.Response.Headers["X-RateLimit-Remaining"] = "0";
+        context.Response.Headers["X-RateLimit-Reset"] = resetTime.ToString("O");
+
+        var errorResponse = new
+        {
+            ErrorCode = "RATE_LIMIT_EXCEEDED",
+            Message = "Too many requests. Please try again later.",
+            Details = new Dictionary<string, object>
+            {
+                ["retryAfterSeconds"] = Math.Max(1, retryAfter),
+                ["resetTime"] = resetTime
+            },
+            TimestampUtc = DateTime.UtcNow,
+            TraceId = context.TraceIdentifier
+        };
+
+        var json = JsonSerializer.Serialize(errorResponse, new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        });
+
+        await context.Response.WriteAsync(json);
+    }
+
+    private void CleanupExpiredEntries(object? state)
+    {
+        var cutoff = DateTime.UtcNow.Subtract(TimeSpan.FromHours(1));
+        var expiredKeys = _rateLimits
+            .Where(kvp => kvp.Value.WindowStart < cutoff)
+            .Select(kvp => kvp.Key)
+            .ToList();
+
+        foreach (var key in expiredKeys)
+        {
+            _rateLimits.TryRemove(key, out _);
+        }
+
+        if (expiredKeys.Count > 0)
+        {
+            _logger.LogDebug("Cleaned up {Count} expired rate limit entries", expiredKeys.Count);
+        }
+    }
+
+    public void Dispose()
+    {
+        _cleanupTimer?.Dispose();
+    }
+}
+
+/// <summary>
+/// Rate limit tracking for a user/client
+/// </summary>
+public class UserRateLimit
+{
+    private readonly object _lock = new();
+    
+    public DateTime WindowStart { get; private set; } = DateTime.UtcNow;
+    public int RequestCount { get; private set; }
+
+    public bool IsAllowed()
+    {
+        lock (_lock)
+        {
+            var now = DateTime.UtcNow;
+            
+            // Reset window if it has expired
+            if (now - WindowStart >= TimeSpan.FromMinutes(1))
+            {
+                WindowStart = now;
+                RequestCount = 0;
+            }
+
+            return RequestCount < 100; // Max 100 requests per minute
+        }
+    }
+
+    public void RecordRequest()
+    {
+        lock (_lock)
+        {
+            RequestCount++;
+        }
+    }
+}

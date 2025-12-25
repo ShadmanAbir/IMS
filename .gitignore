@@ -52,3 +52,14 @@ CodeCoverage/
 *.VisualState.xml
 TestResult.xml
 nunit-*.xml
+/.vs/IMS.Api/copilot-chat/0182c5af/sessions
+/.vs/IMS.Api/CopilotIndices/18.3.95.3864
+*.vsidx
+/.vs/IMS.Api/FileContentIndex/55c5b53e-4f85-4565-be72-f6c5a5924d58.vsidx
+/.vs/IMS.Api/FileContentIndex/69026143-dcf1-4096-a1cd-ad81c0930ffb.vsidx
+/.vs/IMS.Api/FileContentIndex/7bbaa726-92fe-464c-9b23-583a65eb83e3.vsidx
+/.vs/IMS.Api/FileContentIndex/7f248572-16b6-4d72-8ab5-2d9a5e16b127.vsidx
+/.vs/IMS.Api/FileContentIndex/c685e21e-3d48-4097-8237-bf4b286a2b9a.vsidx
+/.vs/IMS.Api/v18/.suo
+/.vs/IMS.Api/v18/DocumentLayout.backup.json
+/.vs/IMS.Api/v18/DocumentLayout.json
